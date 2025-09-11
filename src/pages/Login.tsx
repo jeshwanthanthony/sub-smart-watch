@@ -5,17 +5,31 @@ import { Label } from "@/components/ui/label";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Temporary redirect - will be replaced with Supabase auth
-    window.location.href = "/dashboard";
-  };
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
+    if (error) {
+      toast.error(error.message || "Unable to sign in");
+      return;
+    }
+
+    if (data.session) {
+      window.location.href = "/dashboard";
+    } else {
+      toast.error("Please verify your email before signing in.");
+    }
+  };
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center px-6">
       <div className="w-full max-w-md">

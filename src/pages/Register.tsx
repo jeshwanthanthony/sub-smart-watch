@@ -5,22 +5,40 @@ import { Label } from "@/components/ui/label";
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const Register = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
-      alert("Passwords don't match!");
+      toast.error("Passwords don't match!");
       return;
     }
-    // Temporary redirect - will be replaced with Supabase auth
-    window.location.href = "/dashboard";
-  };
 
+    const redirectUrl = `${window.location.origin}/login`;
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: redirectUrl },
+    });
+
+    if (error) {
+      toast.error(error.message || "Unable to sign up");
+      return;
+    }
+
+    // Enforce email verification: never keep a session after sign up
+    if (data?.session) {
+      await supabase.auth.signOut();
+    }
+
+    toast.success("Check your email to confirm your account, then sign in.");
+  };
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center px-6">
       <div className="w-full max-w-md">

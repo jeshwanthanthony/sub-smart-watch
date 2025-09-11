@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, LogOut, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
@@ -7,6 +7,7 @@ import SubscriptionCard from "@/components/SubscriptionCard";
 import AddSubscriptionModal from "@/components/AddSubscriptionModal";
 import SpendingChart from "@/components/SpendingChart";
 import InsightsPanel from "@/components/InsightsPanel";
+import { supabase } from "@/integrations/supabase/client";
 
 // Dummy data for subscriptions
 const dummySubscriptions = [
@@ -56,6 +57,24 @@ const Dashboard = () => {
   const [subscriptions, setSubscriptions] = useState(dummySubscriptions);
   const [showAddModal, setShowAddModal] = useState(false);
 
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        window.location.href = "/login";
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        window.location.href = "/login";
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
   const monthlyTotal = subscriptions
     .filter(sub => sub.billingPeriod === "monthly")
     .reduce((sum, sub) => sum + sub.cost, 0);
@@ -67,11 +86,10 @@ const Dashboard = () => {
   
   const totalYearlySpend = yearlyFromMonthly + yearlyTotal;
 
-  const handleLogout = () => {
-    // Temporary logout - will be replaced with Supabase auth
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     window.location.href = "/";
   };
-
   const handleAddSubscription = (newSub: any) => {
     const subscription = {
       ...newSub,
