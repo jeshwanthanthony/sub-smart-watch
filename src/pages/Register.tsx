@@ -14,31 +14,25 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password !== confirmPassword) {
-      toast.error("Passwords don't match!");
-      return;
-    }
+  e.preventDefault();
+  if (password !== confirmPassword) {
+    toast.error("Passwords don't match!");
+    return;
+  }
 
-    const redirectUrl = `${window.location.origin}/login`;
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { emailRedirectTo: redirectUrl },
-    });
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+  });
 
-    if (error) {
-      toast.error(error.message || "Unable to sign up");
-      return;
-    }
+  if (error) {
+    toast.error(error.message || "Unable to sign up");
+    return;
+  }
 
-    // Enforce email verification: never keep a session after sign up
-    if (data?.session) {
-      await supabase.auth.signOut();
-    }
+  toast.success("Account created! You are now logged in.");
+};
 
-    toast.success("Check your email to confirm your account, then sign in.");
-  };
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center px-6">
       <div className="w-full max-w-md">
