@@ -8,71 +8,100 @@ import AddSubscriptionModal from "@/components/AddSubscriptionModal";
 import SpendingChart from "@/components/SpendingChart";
 import InsightsPanel from "@/components/InsightsPanel";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
+import type { User, Session } from '@supabase/supabase-js';
 
-// Dummy data for subscriptions
-const dummySubscriptions = [
-  {
-    id: "1",
-    name: "Netflix",
-    cost: 15.99,
-    billingPeriod: "monthly" as const,
-    startDate: "2024-01-15",
-    notes: "Premium plan"
-  },
-  {
-    id: "2", 
-    name: "Spotify Premium",
-    cost: 9.99,
-    billingPeriod: "monthly" as const,
-    startDate: "2023-12-01",
-    notes: "Individual plan"
-  },
-  {
-    id: "3",
-    name: "Adobe Creative Suite",
-    cost: 52.99,
-    billingPeriod: "monthly" as const,
-    startDate: "2024-02-01",
-    notes: "All apps included"
-  },
-  {
-    id: "4",
-    name: "Microsoft 365",
-    cost: 99.99,
-    billingPeriod: "yearly" as const,
-    startDate: "2024-03-01",
-    notes: "Personal subscription"
-  },
-  {
-    id: "5",
-    name: "Gym Membership",
-    cost: 29.99,
-    billingPeriod: "monthly" as const,
-    startDate: "2024-01-01",
-    notes: "Local fitness center"
-  }
-];
+interface Subscription {
+  id: string;
+  name: string;
+  cost: number;
+  billingPeriod: "monthly" | "yearly";
+  startDate: string;
+  notes?: string;
+}
 
 const Dashboard = () => {
-  const [subscriptions, setSubscriptions] = useState(dummySubscriptions);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  // Load subscriptions from Supabase
+  const loadSubscriptions = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        toast({
+          title: "Error loading subscriptions",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const formattedData = data.map(sub => ({
+        id: sub.id,
+        name: sub.name,
+        cost: parseFloat(sub.cost.toString()),
+        billingPeriod: sub.billing_period as "monthly" | "yearly",
+        startDate: sub.start_date,
+        notes: sub.notes || undefined
+      }));
+
+      setSubscriptions(formattedData);
+    } catch (error) {
+      console.error('Error loading subscriptions:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load subscriptions",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (!session) {
+          window.location.href = "/login";
+          return;
+        }
+
+        // Load subscriptions when user logs in
+        if (session?.user && event !== 'SIGNED_OUT') {
+          await loadSubscriptions(session.user.id);
+        }
+      }
+    );
+
+    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      
       if (!session) {
         window.location.href = "/login";
+        return;
       }
+
+      // Load subscriptions for existing session
+      loadSubscriptions(session.user.id);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        window.location.href = "/login";
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   const monthlyTotal = subscriptions
@@ -90,17 +119,104 @@ const Dashboard = () => {
     await supabase.auth.signOut();
     window.location.href = "/login";
   };
-  const handleAddSubscription = (newSub: any) => {
-    const subscription = {
-      ...newSub,
-      id: Date.now().toString()
-    };
-    setSubscriptions([...subscriptions, subscription]);
+
+  const handleAddSubscription = async (newSub: {
+    name: string;
+    cost: number;
+    billingPeriod: "monthly" | "yearly";
+    startDate: string;
+    notes?: string;
+  }) => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .insert({
+          user_id: user.id,
+          name: newSub.name,
+          cost: newSub.cost,
+          billing_period: newSub.billingPeriod,
+          start_date: newSub.startDate,
+          notes: newSub.notes || null
+        })
+        .select()
+        .single();
+
+      if (error) {
+        toast({
+          title: "Error adding subscription",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const formattedSubscription: Subscription = {
+        id: data.id,
+        name: data.name,
+        cost: parseFloat(data.cost.toString()),
+        billingPeriod: data.billing_period as "monthly" | "yearly",
+        startDate: data.start_date,
+        notes: data.notes || undefined
+      };
+
+      setSubscriptions([formattedSubscription, ...subscriptions]);
+      toast({
+        title: "Success",
+        description: "Subscription added successfully",
+      });
+    } catch (error) {
+      console.error('Error adding subscription:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add subscription",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDeleteSubscription = (id: string) => {
-    setSubscriptions(subscriptions.filter(sub => sub.id !== id));
+  const handleDeleteSubscription = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('subscriptions')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        toast({
+          title: "Error deleting subscription",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setSubscriptions(subscriptions.filter(sub => sub.id !== id));
+      toast({
+        title: "Success",
+        description: "Subscription deleted successfully",
+      });
+    } catch (error) {
+      console.error('Error deleting subscription:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete subscription",
+        variant: "destructive",
+      });
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+          <p className="mt-4 text-muted-foreground">Loading your subscriptions...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

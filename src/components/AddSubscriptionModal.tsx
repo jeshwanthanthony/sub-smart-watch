@@ -9,7 +9,13 @@ import { Textarea } from "@/components/ui/textarea";
 interface AddSubscriptionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (subscription: any) => void;
+  onAdd: (subscription: {
+    name: string;
+    cost: number;
+    billingPeriod: "monthly" | "yearly";
+    startDate: string;
+    notes?: string;
+  }) => void;
 }
 
 const AddSubscriptionModal = ({ isOpen, onClose, onAdd }: AddSubscriptionModalProps) => {
