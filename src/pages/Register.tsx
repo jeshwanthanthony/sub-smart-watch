@@ -14,24 +14,30 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const handleRegister = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (password !== confirmPassword) {
-    toast.error("Passwords don't match!");
-    return;
-  }
+    e.preventDefault();
+    if (password !== confirmPassword) {
+      toast.error("Passwords don't match!");
+      return;
+    }
 
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-  });
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
 
-  if (error) {
-    toast.error(error.message || "Unable to sign up");
-    return;
-  }
+    if (error) {
+      toast.error(error.message || "Unable to sign up");
+      return;
+    }
 
-  toast.success("Account created! You are now logged in.");
-};
+    // Redirect immediately if signup succeeds
+    if (data.session) {
+      window.location.href = "/dashboard";
+    } else {
+      toast.success("Account created! Redirecting...");
+      window.location.href = "/dashboard";
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center px-6">
@@ -42,7 +48,7 @@ const Register = () => {
             Back to Home
           </Link>
         </Button>
-        
+
         <Card className="shadow-elegant">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">Create Account</CardTitle>
@@ -89,7 +95,7 @@ const Register = () => {
                 Create Account
               </Button>
             </form>
-            
+
             <div className="mt-6 text-center">
               <p className="text-muted-foreground">
                 Already have an account?{" "}

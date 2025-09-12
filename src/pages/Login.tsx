@@ -25,11 +25,11 @@ const Login = () => {
     }
 
     if (data.session) {
+      toast.success("Login successful!");
       window.location.href = "/dashboard";
-    } else {
-      toast.error("Please verify your email before signing in.");
     }
   };
+
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center px-6">
       <div className="w-full max-w-md">
@@ -39,7 +39,7 @@ const Login = () => {
             Back to Home
           </Link>
         </Button>
-        
+
         <Card className="shadow-elegant">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">Welcome Back</CardTitle>
@@ -75,7 +75,7 @@ const Login = () => {
                 Sign In
               </Button>
             </form>
-            
+
             <div className="mt-6 text-center">
               <p className="text-muted-foreground">
                 Don't have an account?{" "}
