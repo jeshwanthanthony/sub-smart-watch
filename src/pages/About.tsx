@@ -97,7 +97,7 @@ const About = () => {
           {/* Published By Section */}
           <Card className="shadow-elegant bg-gradient-primary text-white text-center">
             <CardContent className="p-12">
-              <h2 className="text-3xl font-bold mb-4">App Published by [Your Name]</h2>
+              <h2 className="text-3xl font-bold mb-4">App Published by Jeshwanth Anthony</h2>
               <p className="text-xl opacity-90 mb-6">
                 Built with passion for helping people achieve financial clarity
               </p>
