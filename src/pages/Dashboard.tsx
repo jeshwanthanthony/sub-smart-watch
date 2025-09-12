@@ -46,14 +46,18 @@ const Dashboard = () => {
         return;
       }
 
-      const formattedData = data.map(sub => ({
-        id: sub.id,
-        name: sub.name,
-        cost: parseFloat(sub.cost.toString()),
-        billingPeriod: sub.billing_period as "monthly" | "yearly",
-        startDate: sub.start_date,
-        notes: sub.notes || undefined
-      }));
+      const formattedData = data.map((sub: any) => {
+        const amountRaw = sub.price ?? sub.cost;
+        const amount = amountRaw != null ? parseFloat(amountRaw.toString()) : 0;
+        return {
+          id: sub.id,
+          name: sub.name,
+          cost: amount,
+          billingPeriod: (sub.billing_period as "monthly" | "yearly") ?? "monthly",
+          startDate: sub.start_date ?? sub.created_at ?? new Date().toISOString().slice(0, 10),
+          notes: sub.notes || undefined,
+        } as Subscription;
+      });
 
       setSubscriptions(formattedData);
     } catch (error) {
@@ -70,22 +74,26 @@ const Dashboard = () => {
 
   useEffect(() => {
     // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (!session) {
-          window.location.href = "/login";
-          return;
-        }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
 
-        // Load subscriptions when user logs in
-        if (session?.user && event !== 'SIGNED_OUT') {
-          await loadSubscriptions(session.user.id);
+      if (!session) {
+        // Clear local state on sign out
+        setSubscriptions([]);
+        if (event === 'SIGNED_OUT') {
+          window.location.href = "/login";
         }
+        return;
       }
-    );
+
+      // Defer Supabase calls to avoid deadlocks
+      if (session.user && event !== 'SIGNED_OUT') {
+        setTimeout(() => {
+          loadSubscriptions(session.user.id);
+        }, 0);
+      }
+    });
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -116,8 +124,14 @@ const Dashboard = () => {
   const totalYearlySpend = yearlyFromMonthly + yearlyTotal;
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    window.location.href = "/login";
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      setSubscriptions([]);
+      setUser(null);
+      setSession(null);
+      window.location.href = "/login";
+    }
   };
 
   const handleAddSubscription = async (newSub: {
@@ -298,13 +312,21 @@ const Dashboard = () => {
             </div>
             
             <div className="space-y-4">
-              {subscriptions.map((subscription) => (
-                <SubscriptionCard
-                  key={subscription.id}
-                  subscription={subscription}
-                  onDelete={handleDeleteSubscription}
-                />
-              ))}
+              {subscriptions.length === 0 ? (
+                <Card className="shadow-soft">
+                  <CardContent className="py-6 text-center text-muted-foreground">
+                    No subscriptions yet
+                  </CardContent>
+                </Card>
+              ) : (
+                subscriptions.map((subscription) => (
+                  <SubscriptionCard
+                    key={subscription.id}
+                    subscription={subscription}
+                    onDelete={handleDeleteSubscription}
+                  />
+                ))
+              )}
             </div>
           </div>
 
