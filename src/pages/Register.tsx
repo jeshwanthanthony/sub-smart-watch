@@ -23,6 +23,9 @@ const Register = () => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/dashboard`
+      }
     });
 
     if (error) {
@@ -30,12 +33,15 @@ const Register = () => {
       return;
     }
 
-    // Redirect immediately if signup succeeds
+    // Account created successfully - user stored in auth.users
     if (data.session) {
+      // If session exists (email confirmation disabled), redirect to dashboard
+      toast.success("Account created! Redirecting to dashboard...");
       window.location.href = "/dashboard";
     } else {
-      toast.success("Account created! Redirecting...");
-      window.location.href = "/dashboard";
+      // If no session (email confirmation enabled), redirect to login
+      toast.success("Account created! Please check your email to verify your account, then sign in.");
+      window.location.href = "/login";
     }
   };
 
